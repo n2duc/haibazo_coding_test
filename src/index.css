@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+@layer base {
+  button {
+    @apply border px-3 cursor-pointer bg-zinc-100 text-sm;
+  }
+}
