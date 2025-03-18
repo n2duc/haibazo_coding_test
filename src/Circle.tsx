@@ -5,6 +5,7 @@ interface CircleProps {
   circle: ICircle;
   circlesNumber: number;
   onClickCircle: (id: number) => void;
+  onRemoveCircle: (id: number) => void;
   isError: boolean;
 }
 
@@ -14,37 +15,42 @@ const Circle = ({
   circle,
   circlesNumber,
   onClickCircle,
+  onRemoveCircle,
   isError,
 }: CircleProps) => {
   const [timer, setTimer] = useState<number>(TIME_TO_DISAPPEAR);
   const [isClick, setIsClick] = useState<boolean>(false);
-  const intervalRef = useRef<number>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (timer === 0) {
+      onRemoveCircle(circle.id);
+    }
+  }, [timer, onRemoveCircle, circle.id]);
 
   useEffect(() => {
     if (isClick && !isError) {
       intervalRef.current = setInterval(() => {
         setTimer((prev) => Math.max(0, prev - 0.1));
       }, 100);
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current);
     }
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isClick, isError]);
+  }, [isError, isClick]);
 
   const handleClick = (id: number) => {
-    if (!isClick) {
-      onClickCircle(id);
-      setIsClick(true);
-    }
+    setIsClick(prev => !prev);
+    onClickCircle(id);
   };
 
   return (
-    <div
+    <button
       key={circle.id}
-      className="absolute flex flex-col items-center justify-center rounded-full border size-10 border-red-600 bg-white text-sm leading-4 select-none cursor-pointer"
+      className={`absolute flex flex-col items-center justify-center rounded-full border size-10 border-red-600 text-sm leading-4 select-none cursor-pointer ${isClick ? "bg-orange-700" : "bg-white"}`}
       style={{
         left: circle.position.x,
         top: circle.position.y,
@@ -52,10 +58,11 @@ const Circle = ({
         opacity: timer / TIME_TO_DISAPPEAR,
       }}
       onClick={() => handleClick(circle.id)}
+      disabled={isClick}
     >
       {circle.id}
-      <span className="text-xs leading-none">{timer.toFixed(1)}s</span>
-    </div>
+      {isClick && <span className="text-xs leading-none text-white">{timer.toFixed(1)}s</span>}
+    </button>
   );
 };
 
