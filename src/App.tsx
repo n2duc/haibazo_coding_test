@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import Circle from "./Circle";
 
-interface ICircle {
+export interface ICircle {
   id: number;
   position: {
     x: number;
@@ -8,49 +9,102 @@ interface ICircle {
   };
 };
 
+const TIME_TO_DISAPPEAR = 3000;
+const FRAME_SIZE = 500;
+const CIRCLE_SIZE = 40;
+
 export default function App() {
   const [circlesNumber, setCirclesNumber] = useState<number>(0);
   const [circles, setCircles] = useState<ICircle[]>([]);
+  const [timer, setTimer] = useState<number>(0);
+  const [nextNumber, setNextNumber] = useState<number>(1);
 
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [isAutoPlay, setIsAutoPlay] = useState<boolean>(false);
+  const [isComplete, setIsComplete] = useState<boolean>(false);
+  const [isFailed, setIsFailed] = useState<boolean>(false);
 
-  const randomPosition = () => {
-    return {
-      x: Math.random() * (500 - 40),
-      y: Math.random() * (500 - 40),
+  const handleCircleClick = useCallback(
+    (circleId: number) => {
+      if (circleId !== nextNumber) {
+        setIsFailed(true);
+        setIsAutoPlay(false);
+      } else if (circleId === nextNumber && !isFailed) {
+        if (circleId < circlesNumber) setNextNumber(circleId + 1);
+        setTimeout(() => {
+          setCircles(circles => circles.filter((circle) => circle.id !== circleId));
+          if (circleId === circlesNumber) {
+            setIsComplete(true);
+            setIsAutoPlay(false);
+            setCircles([]);
+          };
+        }, TIME_TO_DISAPPEAR);
+      }
+    },
+    [circlesNumber, isFailed, nextNumber]  
+  );
+
+  useEffect(() => {
+    let timeoutId: number | undefined;
+    if (isAutoPlay && !isFailed && !isComplete) {
+      timeoutId = setInterval(() => {
+        handleCircleClick(nextNumber);
+      }, TIME_TO_DISAPPEAR);
+    } else {
+      clearInterval(timeoutId);
+    }
+    return () => clearInterval(timeoutId);
+  }, [isAutoPlay, nextNumber, circles, handleCircleClick, isFailed, isComplete]);
+
+  useEffect(() => {
+    let timerInterval: number | undefined;
+    if (isRunning && !isFailed && !isComplete) {
+      timerInterval = setInterval(() => {
+        setTimer(prev => prev + 0.1);
+      }, 100);
+    }
+    return () => {
+      if (timerInterval) clearInterval(timerInterval)
     };
-  };
+  }, [isRunning, isFailed, isComplete]);
 
-  const generateCircle = (circles: number) => {
-    return Array.from({ length: circles }, (_, index) => ({
-      id: index + 1,
-      position: randomPosition(),
-    }));
-  };
-
+  
   const handlePlayGame = () => {
-    const quantity = generateCircle(circlesNumber);
+    const generateCircles = (circles: number) => {
+      return Array.from({ length: circles }, (_, index) => ({
+        id: index + 1,
+        position: {
+          x: Math.random() * (FRAME_SIZE - CIRCLE_SIZE),
+          y: Math.random() * (FRAME_SIZE - CIRCLE_SIZE),
+        },
+      }));
+    };
+    const quantity = generateCircles(circlesNumber);
     if (quantity && quantity.length > 0) {
       setCircles(quantity);
       setIsRunning(true);
+      setNextNumber(1);
+      setIsFailed(false);
+      setTimer(0);
+      setIsComplete(false);
+      setIsAutoPlay(false);
     }
   };
 
-  const handleDisappear = (circleId: number) => {
-    setCircles(circles => circles.filter((circle) => circle.id !== circleId));
+  const handleAutoPlay = () => {
+    setIsAutoPlay(prev => !prev);
   };
-
-  const handleAutoPlay = () => {};
 
   return (
     <div className="flex items-center justify-center w-full min-h-screen">
-      <div className="border p-6">
+      <div className="border p-6 relative">
         {/* header */}
         <div className="flex flex-col items-start gap-3">
-          <h2 className="font-medium">LET'S PLAY</h2>
+          <h2 className={`font-semibold ${isComplete ? "text-green-500" : isFailed ? "text-red-500" : "text-black"}`}>
+            {isComplete ? "ALL CLEARED" : isFailed ? "GAME OVER" : "LET'S PLAY"}
+          </h2>
           <div className="grid text-start grid-cols-2 max-w-[300px] gap-y-2 text-sm">
-            <p>Point:</p>
+            <p>Points:</p>
             <input
               type="text"
               className="border px-1"
@@ -58,37 +112,31 @@ export default function App() {
               value={circlesNumber}
             />
             <p>Time:</p>
-            <p>1.1s</p>
+            <p>{timer.toFixed(1)}s</p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={handlePlayGame}>
               {isRunning ? "Restart" : "Play"}
             </button>
-            {isRunning && <button onClick={handleAutoPlay}>Auto Play ON</button>}
+            {isRunning && !isFailed && !isComplete && <button onClick={handleAutoPlay}>Auto Play {isAutoPlay ? "ON" : "OFF"}</button>}
           </div>
         </div>
         {/* point box */}
         <div className="border w-[500px] aspect-square my-3 relative overflow-hidden">
           {circles?.map((circle) => {
             return (
-              <div
+              <Circle
                 key={circle.id}
-                className="absolute flex flex-col items-center justify-center rounded-full border size-10 border-red-600 bg-white text-sm leading-4"
-                style={{
-                  left: circle.position.x,
-                  top: circle.position.y,
-                  zIndex: (circlesNumber - circle.id + 1),
-                }}
-                onClick={() =>  handleDisappear(circle.id)}
-              >
-                {circle.id}
-                <span className="text-xs leading-none">2.1s</span>
-              </div>
+                circle={circle}
+                circlesNumber={circlesNumber}
+                onClickCircle={handleCircleClick}
+                isError={isFailed}
+              />
             );
           })}
         </div>
 
-        <span className="text-xs">Next: 1</span>
+        {isRunning && <span className="text-xs absolute left-6 bottom-4">Next: {nextNumber}</span>}
       </div>
     </div>
   );
