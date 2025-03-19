@@ -9,12 +9,11 @@ export interface ICircle {
   };
 }
 
-const TIME_TO_DISAPPEAR = 3000;
 const FRAME_SIZE = 500;
 const CIRCLE_SIZE = 40;
 
 export default function App() {
-  const timeoutIdsRef = useRef<number>(0);
+  const lastCircleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [circlesNumber, setCirclesNumber] = useState<number>(0);
   const [circles, setCircles] = useState<ICircle[] | null>(null);
@@ -25,26 +24,28 @@ export default function App() {
   const [isAutoPlay, setIsAutoPlay] = useState<boolean>(false);
   const [isComplete, setIsComplete] = useState<boolean>(false);
   const [isFailed, setIsFailed] = useState<boolean>(false);
+  const [isRestart, setIsRestart] = useState<boolean>(false);
 
-  const handleCircleClick = useCallback(
-    (circleId: number) => {
-      if (circleId !== nextNumber) {
-        setIsFailed(true);
-        setIsRunning(false);
+  const handleCircleClick = (circleId: number) => {
+    if (circleId !== nextNumber) {
+      // console.log("nextNumber", nextNumber);
+      setIsFailed(true);
+      setIsRunning(false);
+    }
+    if (circleId === nextNumber && !isFailed) {
+      if (circleId < circlesNumber) {
+        setNextNumber(circleId + 1);
       }
-      if (circleId === nextNumber && !isFailed) {
-        if (circleId < circlesNumber) setNextNumber(circleId + 1);
-        if (circleId === circlesNumber) {
-          setTimeout(() => {
-            setIsComplete(true);
-            setIsRunning(false);
-            setCircles(null);
-          }, 3000);
-        }
+      // check if circle is the last
+      if (circleId === circlesNumber || nextNumber === circlesNumber) {
+        setTimeout(() => {
+          setIsComplete(true);
+          setIsRunning(false);
+          setCircles(null);
+        }, 3000);
       }
-    },
-    [circlesNumber, isFailed, nextNumber]
-  );
+    }
+  }
 
   const handleRemove = (circleId: number) => {
     setCircles((circles) =>
@@ -54,18 +55,16 @@ export default function App() {
 
   // timer for game
   useEffect(() => {
-    let timerInterval: number | undefined;
+    let timerInterval: NodeJS.Timeout | undefined;
     if (isRunning && !isFailed && !isComplete) {
       timerInterval = setInterval(() => {
         setTimer((prev) => prev + 0.1);
-        if (isComplete) clearInterval(timerInterval);
       }, 100);
     }
-    return () => {
-      if (timerInterval) clearInterval(timerInterval);
-    };
+    return () =>  clearInterval(timerInterval);
   }, [isRunning, isFailed, isComplete]);
 
+  // generate circles with random position
   const generateCircles = (count: number): ICircle[] => {
     return Array.from({ length: count }, (_, index) => ({
       id: index + 1,
@@ -78,7 +77,15 @@ export default function App() {
 
   const handlePlayGame = () => {
     if (circlesNumber <= 0) return;
+
+    // clear setTimeout if the circle is the last one
+    if (lastCircleTimeoutRef.current) {
+      clearTimeout(lastCircleTimeoutRef.current);
+      lastCircleTimeoutRef.current = null;
+    }
+
     if (isFailed) setCircles(null);
+    setIsRestart(true);
     setIsFailed(false);
     setIsComplete(false);
     setIsAutoPlay(false);
@@ -88,7 +95,19 @@ export default function App() {
     setCircles(generateCircles(circlesNumber));
   };
 
+  // clean up effect for lastCircleTimeoutRef
+  useEffect(() => {
+    return () => {
+      if (lastCircleTimeoutRef.current) {
+        clearTimeout(lastCircleTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleAutoPlay = () => {
+    if (isAutoPlay) {
+      setNextNumber(nextNumber + 1);
+    }
     setIsAutoPlay((prev) => !prev);
   };
 
@@ -122,7 +141,7 @@ export default function App() {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={handlePlayGame} disabled={circlesNumber <= 0}>
-              {circles ? "Restart" : "Play"}
+              {isRestart ? "Restart" : "Play"}
             </button>
             {isRunning && !isFailed && !isComplete && (
               <button onClick={handleAutoPlay}>
@@ -141,6 +160,8 @@ export default function App() {
               onClickCircle={handleCircleClick}
               isError={isFailed}
               onRemoveCircle={handleRemove}
+              isAutoPlay={isAutoPlay && circle.id === nextNumber}
+              nextNumber={nextNumber}
             />
           ))}
         </div>

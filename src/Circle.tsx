@@ -7,6 +7,8 @@ interface CircleProps {
   onClickCircle: (id: number) => void;
   onRemoveCircle: (id: number) => void;
   isError: boolean;
+  isAutoPlay?: boolean;
+  nextNumber: number;
 }
 
 const TIME_TO_DISAPPEAR = 3;
@@ -17,6 +19,8 @@ const Circle = ({
   onClickCircle,
   onRemoveCircle,
   isError,
+  isAutoPlay,
+  nextNumber,
 }: CircleProps) => {
   const [timer, setTimer] = useState<number>(TIME_TO_DISAPPEAR);
   const [isClick, setIsClick] = useState<boolean>(false);
@@ -27,6 +31,18 @@ const Circle = ({
       onRemoveCircle(circle.id);
     }
   }, [timer, onRemoveCircle, circle.id]);
+
+  useEffect(() => {
+    if (isAutoPlay && !isError) {
+      if (circle.id === nextNumber) {
+        setIsClick(true);
+      }
+      if (timer === 0) {
+        onClickCircle(circle.id);
+        onRemoveCircle(circle.id);
+      }
+    }
+  }, [isAutoPlay, nextNumber, circle.id, isError, timer]);
 
   useEffect(() => {
     if (isClick && !isError) {
@@ -43,6 +59,7 @@ const Circle = ({
   }, [isError, isClick]);
 
   const handleClick = (id: number) => {
+    console.log("id", id);
     setIsClick(prev => !prev);
     onClickCircle(id);
   };
@@ -58,7 +75,7 @@ const Circle = ({
         opacity: timer / TIME_TO_DISAPPEAR,
       }}
       onClick={() => handleClick(circle.id)}
-      disabled={isClick}
+      disabled={isError}
     >
       {circle.id}
       {isClick && <span className="text-xs leading-none text-white">{timer.toFixed(1)}s</span>}
