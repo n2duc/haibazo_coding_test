@@ -59,7 +59,6 @@ const Circle = ({
   }, [isError, isClick]);
 
   const handleClick = (id: number) => {
-    console.log("id", id);
     setIsClick(prev => !prev);
     onClickCircle(id);
   };

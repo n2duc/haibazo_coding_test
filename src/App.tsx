@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Circle from "./Circle";
 
 export interface ICircle {
@@ -38,11 +38,12 @@ export default function App() {
       }
       // check if circle is the last
       if (circleId === circlesNumber || nextNumber === circlesNumber) {
-        setTimeout(() => {
+        const timeToEnd = isAutoPlay ? 0 : 3000;
+        lastCircleTimeoutRef.current = setTimeout(() => {
           setIsComplete(true);
           setIsRunning(false);
           setCircles(null);
-        }, 3000);
+        }, timeToEnd);
       }
     }
   }
@@ -79,7 +80,7 @@ export default function App() {
     if (circlesNumber <= 0) return;
 
     // clear setTimeout if the circle is the last one
-    if (lastCircleTimeoutRef.current) {
+    if (lastCircleTimeoutRef.current && isRestart) {
       clearTimeout(lastCircleTimeoutRef.current);
       lastCircleTimeoutRef.current = null;
     }
